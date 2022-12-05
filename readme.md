@@ -1,1 +1,1 @@
-# Webapp
+# Bookings & Reservations project
