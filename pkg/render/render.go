@@ -2,7 +2,6 @@ package render
 
 import (
 	"bytes"
-	"fmt"
 	"html/template"
 	"log"
 	"net/http"
@@ -11,6 +10,8 @@ import (
 	"github.com/tranvanloc412/bookings/pkg/config"
 	"github.com/tranvanloc412/bookings/pkg/models"
 )
+
+var functions = template.FuncMap{}
 
 var app *config.AppConfig
 
@@ -32,12 +33,13 @@ func RenderTemplate(w http.ResponseWriter, tmpl string, td *models.TemplateData)
 	}
 
 	// get template from cache
-	buf := new(bytes.Buffer)
 	ts, ok := tc[tmpl]
 
 	if !ok {
 		log.Fatal("Can't get template cache \n")
 	}
+
+	buf := new(bytes.Buffer)
 
 	td = AppDefaultData(td)
 	_ = ts.Execute(buf, td)
@@ -50,7 +52,7 @@ func RenderTemplate(w http.ResponseWriter, tmpl string, td *models.TemplateData)
 }
 
 func CreateTemplateCache() (map[string]*template.Template, error) {
-	tc := make(map[string]*template.Template)
+	tc := map[string]*template.Template{}
 
 	pages, err := filepath.Glob("./templates/*.page.html")
 	if err != nil {
@@ -60,25 +62,60 @@ func CreateTemplateCache() (map[string]*template.Template, error) {
 
 	for _, page := range pages {
 		name := filepath.Base(page)
-		tmpl, err := template.New(name).ParseFiles(fmt.Sprintf("./templates/%s", name))
+		ts, err := template.New(name).Funcs(functions).ParseFiles(page)
 
 		if err != nil {
 			log.Printf("Can't get layouts %s \n", err)
 			return tc, err
 		}
 
-		tmpl, err = tmpl.ParseGlob("./templates/*.layout.html")
+		tmpl, err := filepath.Glob("./templates/*.layout.html")
 		if err != nil {
 			log.Printf("Can't parse layouts %s \n", err)
 			return tc, err
 		}
+		if len(tmpl) > 0 {
+			ts, err = ts.ParseGlob("./templates/*.layout.html")
+			if err != nil {
+				return tc, err
+			}
+		}
 
-		tc[name] = tmpl
+		tc[name] = ts
 	}
-	fmt.Printf("tmpl: %+v", tc)
 	return tc, nil
 }
 
+// myCache := map[string]*template.Template{}
+
+// pages, err := filepath.Glob("./templates/*.page.tmpl")
+// if err != nil {
+// 	return myCache, err
+// }
+
+// for _, page := range pages {
+// 	name := filepath.Base(page)
+// 	ts, err := template.New(name).Funcs(functions).ParseFiles(page)
+// 	if err != nil {
+// 		return myCache, err
+// 	}
+
+// 	matches, err := filepath.Glob("./templates/*.layout.tmpl")
+// 	if err != nil {
+// 		return myCache, err
+// 	}
+
+// 	if len(matches) > 0 {
+// 		ts, err = ts.ParseGlob("./templates/*.layout.tmpl")
+// 		if err != nil {
+// 			return myCache, err
+// 		}
+// 	}
+
+// 	myCache[name] = ts
+// }
+
+// return myCache, nil
 // var tc = make(map[string]*template.Template)
 
 // func RenderTemplate(w http.ResponseWriter, t string) {
